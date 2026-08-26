@@ -14,6 +14,9 @@ export const CUSTOM_EMOJI_TAG_RE = /<tg-emoji\s+emoji-id="([^"]+)">([\s\S]*?)<\/
 // Matches valid Telegram HTML tags to preserve them during escaping
 const VALID_TG_TAG_RE = /<\/?(?:b|strong|i|em|u|ins|s|strike|del|tg-spoiler|code|pre|blockquote(?:\s+expandable)?|a(?:\s+href="[^"]*")?|tg-emoji(?:\s+emoji-id="[^"]*")?)>/gi;
 
+// Strictly allowed Telegram reactions
+export const ALLOWED_REACTION_EMOJIS = new Set(["❤", "❤️", "👍", "🔥", "👎"]);
+
 /**
  * Escapes characters for HTML.
  */
@@ -46,16 +49,23 @@ export function stripDeliveryTags(text: string): string {
 }
 
 /**
- * Extracts reactions from <tg-react emoji="..."/> tags.
+ * Extracts strictly allowed reactions from <tg-react emoji="..."/> tags.
+ * Only permits: ❤, 👍, 🔥, 👎.
  */
 export function extractReactions(text: string): string[] {
   const reactions: string[] = [];
   const matches = text.matchAll(REACT_TAG_RE);
   for (const match of matches) {
     const rawAttrs = match[1];
-    const emojiMatch = rawAttrs.match(/(?:emoji|tag|name)=["']?([^"'\s>]+)["']?/i) || rawAttrs.match(/["']?([^"'\s>]+)["']?/);
+    const emojiMatch =
+      rawAttrs.match(/(?:emoji|tag|name)=["']?([^"'\s>]+)["']?/i) ||
+      rawAttrs.match(/["']?([^"'\s>]+)["']?/);
     if (emojiMatch && emojiMatch[1]) {
-      reactions.push(emojiMatch[1]);
+      const emoji = emojiMatch[1].trim();
+      const normalized = emoji === "❤️" ? "❤" : emoji;
+      if (ALLOWED_REACTION_EMOJIS.has(normalized)) {
+        reactions.push(normalized);
+      }
     }
   }
   return reactions;
@@ -69,7 +79,9 @@ export function extractStickers(text: string): string[] {
   const matches = text.matchAll(STICKER_TAG_RE);
   for (const match of matches) {
     const rawAttrs = match[1];
-    const tagMatch = rawAttrs.match(/(?:tag|id|name|file_id)=["']?([^"'\s>]+)["']?/i) || rawAttrs.match(/["']?([^"'\s>]+)["']?/);
+    const tagMatch =
+      rawAttrs.match(/(?:tag|id|name|file_id)=["']?([^"'\s>]+)["']?/i) ||
+      rawAttrs.match(/["']?([^"'\s>]+)["']?/);
     if (tagMatch && tagMatch[1]) {
       stickers.push(tagMatch[1]);
     }
@@ -143,6 +155,8 @@ export function wrapMarkdownTables(text: string): string {
 
 /**
  * Converts Markdown text into rich, Telegram-compatible HTML.
+ * Ensures <blockquote> tags never contain internal leading/trailing \n and formats
+ * long blockquotes (>180 chars or >=4 lines) with <blockquote expandable>.
  */
 export function mdToTelegramHtml(markdown: string): string {
   if (!markdown) return "";
@@ -170,7 +184,15 @@ export function mdToTelegramHtml(markdown: string): string {
     return placeholder;
   });
 
-  // 5. Temporarily stash existing valid Telegram HTML tags
+  // 5. Clean & stash direct HTML blockquotes (trim internal \n and handle expandable)
+  text = text.replace(/<blockquote(\s+expandable)?>\s*([\s\S]*?)\s*<\/blockquote>/gi, (_, exp, content) => {
+    const cleanContent = content.trim();
+    const isLong = cleanContent.length > 180 || cleanContent.split("\n").length >= 4;
+    const expAttr = exp || isLong ? " expandable" : "";
+    return `<blockquote${expAttr}>${cleanContent}</blockquote>`;
+  });
+
+  // 6. Temporarily stash existing valid Telegram HTML tags
   const validHtmlTags: string[] = [];
   text = text.replace(VALID_TG_TAG_RE, (tag) => {
     const placeholder = `\x01TG${validHtmlTags.length}\x02`;
@@ -178,47 +200,51 @@ export function mdToTelegramHtml(markdown: string): string {
     return placeholder;
   });
 
-  // 6. Escape HTML characters in remaining text
+  // 7. Escape HTML characters in remaining text
   text = escapeHtml(text);
 
-  // 7. Headers (# Header -> <b>Header</b>)
+  // 8. Headers (# Header -> <b>Header</b>)
   text = text.replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>\n");
 
-  // 8. Bold (**text** or __text__)
+  // 9. Bold (**text** or __text__)
   text = text.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
   text = text.replace(/__(.*?)__/g, "<b>$1</b>");
 
-  // 9. Italic (*text* or _text_)
+  // 10. Italic (*text* or _text_)
   text = text.replace(/(?<!\w)\*(?!\s)([^*]+?)(?<!\s)\*(?!\w)/g, "<i>$1</i>");
   text = text.replace(/(?<!\w)_(?!\s)([^_]+?)(?<!\s)_(?!\w)/g, "<i>$1</i>");
 
-  // 10. Strikethrough (~~text~~)
+  // 11. Strikethrough (~~text~~)
   text = text.replace(/~~(.*?)~~/g, "<s>$1</s>");
 
-  // 11. Spoilers (||text||)
+  // 12. Spoilers (||text||)
   text = text.replace(/\|\|(.*?)\|\|/g, "<tg-spoiler>$1</tg-spoiler>");
 
-  // 12. Multi-line Markdown Blockquotes (> text or &gt; text)
+  // 13. Multi-line Markdown Blockquotes (> text or &gt; text)
+  // Strips leading/trailing \n inside blockquote and adds expandable for long text
   text = text.replace(/(?:^(?:>|&gt;)[ \t]?(?:.*(?:\n|$)))+/gm, (block) => {
     const lines = block.split("\n").filter((l) => l.startsWith(">") || l.startsWith("&gt;") || l.trim() !== "");
     const inner = lines.map((line) => line.replace(/^(?:>|&gt;)[ \t]?/, "")).join("\n").trim();
-    return inner ? `<blockquote>${inner}</blockquote>\n` : "";
+    if (!inner) return "";
+    const isLong = inner.length > 180 || inner.split("\n").length >= 4;
+    const tag = isLong ? "<blockquote expandable>" : "<blockquote>";
+    return `${tag}${inner}</blockquote>\n`;
   });
 
-  // 13. Links ([text](url))
+  // 14. Links ([text](url))
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
 
-  // 14. Restore valid Telegram HTML tags
+  // 15. Restore valid Telegram HTML tags
   for (let i = 0; i < validHtmlTags.length; i++) {
     text = text.replace(`\x01TG${i}\x02`, validHtmlTags[i]);
   }
 
-  // 15. Restore inline code
+  // 16. Restore inline code
   for (let i = 0; i < inlineCodes.length; i++) {
     text = text.replace(`\x01IC${i}\x02`, inlineCodes[i]);
   }
 
-  // 16. Restore code blocks
+  // 17. Restore code blocks
   for (let i = 0; i < codeBlocks.length; i++) {
     text = text.replace(`\x01CB${i}\x02`, codeBlocks[i]);
   }

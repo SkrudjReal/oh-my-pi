@@ -1,7 +1,7 @@
 ---
 name: telegram-premium-emoji
 description: "Universal Telegram Premium emoji, custom reactions (<tg-react>), stickers (<tg-sticker>), and aesthetic blockquote formatting skill for AI agents."
-version: 3.0.0
+version: 3.1.0
 author: Antigravity / OMP
 license: MIT
 platforms: [linux, macos, wsl, telegram]
@@ -15,7 +15,21 @@ Use this skill when interacting with users on Telegram to produce high-engagemen
 
 ---
 
-## 1. Verified Custom Emoji Packs Catalog
+## 1. Core Telegram Output Rules
+
+1. **ALWAYS USE TELEGRAM PREMIUM CUSTOM EMOJIS BY DEFAULT:**
+   In **EVERY** response, naturally include 1–3 Telegram Premium Custom Emojis (`<tg-emoji emoji-id="...">char</tg-emoji>`) from the verified catalog below. Never omit them unless explicitly asked for plain raw text.
+2. **BLOCKQUOTE FORMATTING WITHOUT NEWLINES (`<blockquote>text</blockquote>`):**
+   * Blockquote tags MUST NOT contain internal leading/trailing newlines: use `<blockquote>text</blockquote>`, **NEVER** `<blockquote>\ntext\n</blockquote>`.
+   * For long summaries, code explanations, or lists (>180 characters or >=4 lines), use `<blockquote expandable>text</blockquote>`.
+3. **STRICT REACTION RULES (1 OUT OF 10 MESSAGES):**
+   * **Only 4 reactions are allowed:** `❤`, `👍`, `🔥`, `👎`.
+   * **Frequency:** Do NOT react to every message. Use reactions sparingly (~1 in 10 messages) for high-impact moments.
+   * Syntax: `<tg-react emoji="🔥"/>`, `<tg-react emoji="❤"/>`, `<tg-react emoji="👍"/>`, `<tg-react emoji="👎"/>`.
+
+---
+
+## 2. Verified Custom Emoji Packs Catalog
 
 ### Pack A: `aura_maogui` (https://t.me/addemoji/aura_maogui)
 *Aesthetic pastel & aura custom emojis for emotions, highlights, and status:*
@@ -26,7 +40,6 @@ Use this skill when interacting with users on Telegram to produce high-engagemen
   * White Pure Heart: `<tg-emoji emoji-id="6136594580411258751">🤍</tg-emoji>`
   * Purple Neon Heart: `<tg-emoji emoji-id="6136436598629209942">💜</tg-emoji>`
   * Yellow Aura Heart: `<tg-emoji emoji-id="6136400971875490032">💛</tg-emoji>`
-  * Beating Heart: `<tg-emoji emoji-id="6136619529876280416">💓</tg-emoji>`
 * **Sparkles & Stars (Success & Polish):**
   * Gold Shimmer Sparkle: `<tg-emoji emoji-id="6136155901041578903">✨</tg-emoji>`
   * Glowing Star: `<tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji>`
@@ -53,7 +66,6 @@ Use this skill when interacting with users on Telegram to produce high-engagemen
 * **Documentation & Books:**
   * Cyan Book: `<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji>`
   * Purple Book: `<tg-emoji emoji-id="5350727663889708002">📖</tg-emoji>`
-  * Pink Book: `<tg-emoji emoji-id="5348449183739180542">📖</tg-emoji>`
 * **Folders & Files:**
   * Neon Blue Folder: `<tg-emoji emoji-id="5348222744473398688">📁</tg-emoji>`
   * Purple Folder: `<tg-emoji emoji-id="5350726860730821119">📁</tg-emoji>`
@@ -75,41 +87,22 @@ Use this skill when interacting with users on Telegram to produce high-engagemen
 
 ---
 
-## 2. Blockquote Formatting & Visual Hierarchy Rules
+## 3. Example Response Templates
 
-To make responses look clean, elegant, and readable on mobile Telegram clients:
-
-1. **Use Blockquotes for Key Insights & Highlights:**
-   Wrap important summaries, takeaways, warnings, or quotes inside `<blockquote>...</blockquote>` (or markdown `> ...`).
-2. **Accentuate with Premium Emojis:**
-   Place 1 custom emoji at the start of a blockquote or section header.
-3. **Keep Regular Text Clean:**
-   Do not overload every single sentence with emojis (optimal is 1–3 custom emojis per message).
-
-### Example Response Layout:
-
+### Standard Greeting:
 ```html
-<tg-react emoji="🔥"/>
-<b>🚀 Релиз и деплой успешно завершены!</b> <tg-emoji emoji-id="5336824751673343377">👌</tg-emoji>
+Привет, Скрудж! <tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Рад снова тебя видеть!
 
-<blockquote>
-<tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> Все 17 автоматических тестов пройдены без единой ошибки.<br>
-<tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> Сборка упакована в production bundle и готова к работе.
-</blockquote>
+<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> Воркспейс инициализирован и готов к задачам.</blockquote>
 
-<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <b>Что было изменено:</b>
-• Добавлена строгая проверка прав через Magic Filters
-• Подключена живая трансляция выполнения команд через Live Streaming
-• Настроено меню команд <code>setMyCommands</code> в Telegram
-
-<blockquote>
-<tg-emoji emoji-id="5305423313764363203">🤫</tg-emoji> <i>Совет: Для управления ботом используйте команду /start или встроенные inline-кнопки.</i>
-</blockquote>
+<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> Чем займёмся сегодня?
 ```
 
----
-
-## 3. Interactive Reaction & Sticker Tags
-
-- **Reactions:** Insert `<tg-react emoji="🔥"/>` (or `❤`, `⚡`, `👍`, `🎉`) anywhere in the response. The bot dispatches the native Telegram reaction to the user's message.
-- **Stickers:** Insert `<tg-sticker tag="celebration"/>` or `<tg-sticker tag="heart"/>` for visual accents at emotional peaks.
+### Expandable Blockquote for Long Output:
+```html
+<blockquote expandable><tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> <b>Подробный отчет о выполненных изменениях:</b>
+• Проведен рефакторинг обработчика разметки
+• Настроены правила цитирования blockquote без переносов строк
+• Ограничены реакции до 4 строгих эмодзи (❤, 👍, 🔥, 👎)
+• Обновлена частота простановки реакций до 1/10 сообщений</blockquote>
+```

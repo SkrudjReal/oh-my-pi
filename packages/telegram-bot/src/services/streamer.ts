@@ -46,6 +46,7 @@ export class TelegramStreamConsumer {
   private isFinalized = false;
   private lastRenderedHtml = "";
   private abortController: AbortController = new AbortController();
+  private static globalMessageCounter = 0;
 
   constructor(options: StreamerOptions) {
     this.chatId = options.chatId;
@@ -238,11 +239,12 @@ export class TelegramStreamConsumer {
 
     const rawText = this.accumulatedText;
 
-    // 1. Extract and dispatch reactions
+    // 1. Extract and dispatch reactions (strictly 1 in 10 messages, and only ❤, 👍, 🔥, 👎)
+    TelegramStreamConsumer.globalMessageCounter++;
     if (this.enableReactions && this.replyToMessageId) {
       const reactions = extractReactions(rawText);
-      if (reactions.length > 0) {
-        const reactionObjs: TelegramReactionType[] = reactions.slice(0, 3).map((emoji) => ({
+      if (reactions.length > 0 && TelegramStreamConsumer.globalMessageCounter % 10 === 0) {
+        const reactionObjs: TelegramReactionType[] = reactions.slice(0, 1).map((emoji) => ({
           type: "emoji",
           emoji,
         }));
