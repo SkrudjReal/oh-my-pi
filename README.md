@@ -559,6 +559,18 @@ The [Agent Client Protocol](https://github.com/zed-industries/agent-client-proto
 
 Full reference: [omp.sh/docs/sdk](https://omp.sh/docs/sdk).
 
+### Telegram Bot — deploy anywhere with real-time streaming
+
+`omp telegram`
+
+Run OMP as an autonomous Telegram Bot with real-time token streaming, per-chat session isolation, rich HTML/custom emoji formatting, and full tool execution.
+
+```sh
+omp telegram --token="<BOT_TOKEN>" --model="google-antigravity/gemini-3.7-flash" --public
+```
+
+_[Read the Telegram Bot documentation](packages/telegram-bot/README.md)_
+
 ## A harness worth keeping is one you _don't_ outgrow.
 
 Pick it up at **[omp.sh](https://omp.sh)**.

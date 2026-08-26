@@ -32,6 +32,7 @@
       "@oh-my-pi/pi-coding-agent": "18.0.6",
       "@oh-my-pi/pi-mnemopi": "18.0.6",
       "@oh-my-pi/pi-natives": "18.0.6",
+      "@oh-my-pi/pi-telegram-bot": "18.0.6",
       "@oh-my-pi/pi-tui": "18.0.6",
       "@oh-my-pi/pi-utils": "18.0.6",
       "@oh-my-pi/pi-wire": "18.0.6",

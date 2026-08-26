@@ -219,6 +219,12 @@ export const commands: CommandEntry[] = [
 		help: commandHelp.worktreeHelp,
 	},
 	{
+		name: "telegram",
+		load: () => import("./commands/telegram").then(m => m.default),
+		aliases: ["tg", "bot"],
+		help: commandHelp.telegramHelp,
+	},
+	{
 		name: "search",
 		load: () => import("./commands/web-search").then(m => m.default),
 		aliases: ["q"],

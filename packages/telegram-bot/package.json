@@ -1,0 +1,35 @@
+{
+  "name": "@oh-my-pi/pi-telegram-bot",
+  "version": "18.0.6",
+  "description": "Universal Telegram Bot interface and streaming bridge for Oh My Pi (omp) AI Coding Agent",
+  "homepage": "https://omp.sh",
+  "author": "Stencil Labs, Inc.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "omp-telegram": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@oh-my-pi/pi-ai": "catalog:",
+    "@oh-my-pi/pi-catalog": "catalog:",
+    "@oh-my-pi/pi-coding-agent": "catalog:",
+    "@oh-my-pi/pi-utils": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "engines": {
+    "bun": ">=1.3.14"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ]
+}

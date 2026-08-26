@@ -128,3 +128,7 @@ export const usageHelp = {
 export const worktreeHelp = {
 	description: "List or clear agent-managed git worktrees (~/.omp/wt)",
 } satisfies CommandMetadata;
+
+export const telegramHelp = {
+	description: "Run Oh My Pi as a Telegram Bot with streaming, session isolation, and full tool execution",
+} satisfies CommandMetadata;

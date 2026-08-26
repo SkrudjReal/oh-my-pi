@@ -1,0 +1,18 @@
+[Unit]
+Description=Oh My Pi (omp) Universal Telegram Bot Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/oh-my-pi/packages/telegram-bot
+EnvironmentFile=-/opt/oh-my-pi/packages/telegram-bot/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/bun run src/index.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

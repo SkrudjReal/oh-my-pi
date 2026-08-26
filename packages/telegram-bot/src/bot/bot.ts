@@ -1,0 +1,73 @@
+/**
+ * Main OMP Telegram Bot Service runner.
+ */
+
+import type { BotConfig } from "../core/config";
+import { AgentBridge } from "../services/agent-bridge";
+import { MessageHandler } from "./handlers";
+import { TelegramClient } from "./telegram-client";
+
+export class OmpTelegramBot {
+  private readonly client: TelegramClient;
+  private readonly agentBridge: AgentBridge;
+  private readonly messageHandler: MessageHandler;
+  private isRunning = false;
+  private abortController: AbortController = new AbortController();
+
+  constructor(private readonly config: BotConfig) {
+    this.client = new TelegramClient(config.telegramToken);
+    this.agentBridge = new AgentBridge(config);
+    this.messageHandler = new MessageHandler(this.client, this.agentBridge, config);
+  }
+
+  async start(): Promise<void> {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.abortController = new AbortController();
+
+    const me = await this.client.getMe(this.abortController.signal);
+    console.log(`🤖 OMP Telegram Bot started as @${me.username} (ID: ${me.id})`);
+    console.log(`🎯 Default Model: ${this.config.defaultModel}`);
+    console.log(`🛡 Public Mode: ${this.config.isPublicMode ? "YES (All Users Allowed)" : "NO (Whitelisted Only)"}`);
+    console.log(`📁 Workspace Root: ${this.config.workspaceRoot}`);
+    console.log(`⚡ Streaming Enabled: ${this.config.enableStreaming ? "YES" : "NO"}`);
+
+    let offset = 0;
+
+    while (this.isRunning) {
+      try {
+        const updates = await this.client.getUpdates(
+          {
+            offset,
+            limit: 100,
+            timeout: 25,
+            allowed_updates: ["message", "edited_message", "callback_query"],
+          },
+          this.abortController.signal,
+        );
+
+        for (const update of updates) {
+          offset = Math.max(offset, update.update_id + 1);
+
+          if (update.message) {
+            void this.messageHandler.handleMessage(update.message);
+          }
+        }
+      } catch (err: unknown) {
+        if (this.abortController.signal.aborted) {
+          break;
+        }
+        console.error("Polling error:", err instanceof Error ? err.message : String(err));
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+
+    console.log("🛑 OMP Telegram Bot stopped.");
+  }
+
+  stop(): void {
+    if (!this.isRunning) return;
+    this.isRunning = false;
+    this.abortController.abort();
+  }
+}
