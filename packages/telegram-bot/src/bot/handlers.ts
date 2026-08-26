@@ -653,6 +653,13 @@ export class MessageHandler {
         ],
       ],
     };
+
+    await this.client.sendMessage(message.chat.id, text, {
+      message_thread_id: message.message_thread_id,
+      reply_to_message_id: message.message_id,
+      reply_markup: keyboard,
+      parse_mode: "HTML",
+    });
   }
 
   private async handleApprovalMode(message: TelegramMessage, args: string): Promise<void> {
