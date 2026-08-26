@@ -26,6 +26,27 @@ The most capable agent surface that ships. Continuously tuned by real-world use 
 
 **60+** providers · **31** built-in tools · **14** lsp ops · **28** dap ops · **~80k** lines of Rust core.
 
+
+---
+
+### 🚀 What's Added in This Fork (Telegram Bot & Agent Skills)
+
+This fork introduces a **universal, depersonalized Telegram Bot integration** and **autonomous deployment skills** built exclusively for the Oh My Pi (`omp`) AI agent ecosystem, combining the streaming/emotional markup patterns of **Geminka Agent** with the production resilience of **Hermes Agent**:
+
+- 🤖 **Universal Telegram Bot Package (`@oh-my-pi/pi-telegram-bot` in `packages/telegram-bot/`):**
+  - **Real-Time Live Streaming:** Progressive token streaming directly to Telegram with live tool badges (`⚙️ bash`, `📖 read`, `✏️ edit`, `📝 write`, `🔍 search`, `🌐 web_search`, `🤖 subagent`).
+  - **Session & Workspace Isolation:** Every Telegram chat and topic gets an isolated session context (`~/.omp/telegram-sessions/<chat_id>`) and isolated workspace directory (`~/.omp/telegram-workspaces/<chat_id>`).
+  - **Rich Markdown & Table Formatting:** GFM Markdown translated to native Telegram HTML, code blocks with syntax tags, and automatic transformation of tables into readable mobile cards.
+  - **Telegram Premium Custom Emojis & Markup:** Native support for `<tg-emoji emoji-id="...">`, message reactions (`<tg-react emoji="...">`), stickers (`<tg-sticker tag="...">`), and reasoning suppression (`<think>...</think>`).
+  - **Multi-Modal Attachment Ingestion:** Photos, documents, code files, and audio notes are automatically downloaded into the chat workspace and referenced in agent prompts (`@downloads/photo.jpg`).
+  - **Access Control & Safety:** Whitelist-based or public access mode, admin commands, and tool execution approval modes (`yolo`, `write`, `always-ask`).
+  - **CLI Subcommand:** Launch anywhere with `omp telegram --token="<BOT_TOKEN>" --model="<MODEL>"`.
+
+- 🛠 **Autonomous Skills for Other OMP Agents (`skills/`):**
+  - **`omp-telegram-bot` (`skills/omp-telegram-bot/SKILL.md`):** Step-by-step skill allowing any OMP agent to scaffold, configure, and operate Telegram bots across servers.
+  - **`telegram-premium-emoji` (`skills/telegram-premium-emoji/SKILL.md`):** Universal guide for using Telegram Premium custom emojis, reactions, and rich emotional formatting.
+
+---
 > [!NOTE]
 > Pull requests are **temporarily open to everyone** as a trial. We previously
 > required a vouch before accepting PRs; that requirement is lifted for now
