@@ -194,10 +194,11 @@ export class MessageHandler {
     if (data.startsWith("set_model:")) {
       const modelName = data.slice("set_model:".length);
       this.agentBridge.setModel(chatId, modelName);
-      await this.client.answerCallbackQuery(query.id, { text: `✅ Модель: ${modelName}` });
+      const display = modelName || "OMP Default (Авторизованная в OMP)";
+      await this.client.answerCallbackQuery(query.id, { text: `✅ Модель: ${display}` });
       await this.client.sendMessage(
         chatId,
-        `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель переключена:</b>\n<code>${modelName}</code></blockquote>`,
+        `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель переключена:</b>\n<code>${display}</code></blockquote>`,
         { parse_mode: "HTML" },
       );
       return;
@@ -631,26 +632,27 @@ export class MessageHandler {
     const keyboard: TelegramInlineKeyboardMarkup = {
       inline_keyboard: [
         [
-          { text: "⚡ Gemini 3.7 Flash", callback_data: "set_model:google-antigravity/gemini-3.7-flash" },
+          { text: "🌙 Codex GPT-5.6 Luna", callback_data: "set_model:openai-codex/gpt-5.6-luna" },
+          { text: "☀️ Codex GPT-5.6 Sol", callback_data: "set_model:openai-codex/gpt-5.6-sol" },
+        ],
+        [
+          { text: "🌍 Codex GPT-5.6 Terra", callback_data: "set_model:openai-codex/gpt-5.6-terra" },
+          { text: "💎 Codex GPT-5.5", callback_data: "set_model:openai-codex/gpt-5.5" },
+        ],
+        [
+          { text: "⚡ Codex GPT-5.4", callback_data: "set_model:openai-codex/gpt-5.4" },
+          { text: "💨 Codex GPT-5.4 Mini", callback_data: "set_model:openai-codex/gpt-5.4-mini" },
+        ],
+        [
           { text: "🧠 Claude 3.7 Sonnet", callback_data: "set_model:claude-3-7-sonnet" },
+          { text: "⚡ Gemini 3.7 Flash", callback_data: "set_model:google-antigravity/gemini-3.7-flash" },
         ],
         [
-          { text: "🚀 GPT-4o", callback_data: "set_model:gpt-4o" },
           { text: "🌌 DeepSeek V3", callback_data: "set_model:deepseek/deepseek-chat" },
-        ],
-        [
-          { text: "🏎 Claude 3.5 Haiku", callback_data: "set_model:claude-3-5-haiku" },
-          { text: "🔮 O3-Mini", callback_data: "set_model:o3-mini" },
+          { text: "🔄 Сброс на OMP Default", callback_data: "set_model:" },
         ],
       ],
     };
-
-    await this.client.sendMessage(message.chat.id, text, {
-      message_thread_id: message.message_thread_id,
-      reply_to_message_id: message.message_id,
-      reply_markup: keyboard,
-      parse_mode: "HTML",
-    });
   }
 
   private async handleApprovalMode(message: TelegramMessage, args: string): Promise<void> {
