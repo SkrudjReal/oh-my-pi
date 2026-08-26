@@ -93,11 +93,10 @@ export function loadConfig(overrides?: Partial<BotConfig>): BotConfig {
   }
 
   const defaultModel =
-    overrides?.defaultModel ||
-    process.env.OMP_MODEL ||
-    process.env.PI_DEFAULT_MODEL ||
-    "google-antigravity/gemini-3.7-flash";
-
+    overrides?.defaultModel ??
+    process.env.OMP_MODEL ??
+    process.env.PI_DEFAULT_MODEL ??
+    "";
   const workspaceRoot =
     overrides?.workspaceRoot ||
     process.env.OMP_WORKSPACE_ROOT ||

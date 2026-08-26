@@ -4,30 +4,34 @@ set -euo pipefail
 # Ensure standard binary directories are in PATH
 export PATH="$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 
+# Source user profile/env if present
+[ -f "$HOME/.profile" ] && source "$HOME/.profile" 2>/dev/null || true
+[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null || true
+[ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null || true
+
 echo "=================================================="
 echo " 🤖 Oh My Pi (omp) Telegram Bot Deployment Script "
 echo "=================================================="
 
 # 1. Check / Install Bun
 if ! command -v bun &> /dev/null; then
-    echo "📦 Bun not found. Installing Bun runtime..."
+    echo "📦 Bun runtime not found. Installing Bun..."
     curl -fsSL https://bun.sh/install | bash
     export PATH="$HOME/.bun/bin:$PATH"
 fi
-
 echo "✅ Bun version: $(bun --version)"
 
 # 2. Check / Install OMP Agent via official installer
 if ! command -v omp &> /dev/null; then
-    echo "📦 OMP CLI not found. Installing Oh My Pi (omp.sh)..."
+    echo "📦 OMP CLI not found. Installing Oh My Pi (omp)..."
     curl -fsSL https://omp.sh/install | sh
     export PATH="$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 fi
 
 if command -v omp &> /dev/null; then
-    echo "✅ OMP CLI found: $(which omp) ($(omp --version 2>/dev/null || echo 'installed'))"
+    echo "✅ OMP CLI found: $(which omp)"
 else
-    echo "⚠️ Warning: 'omp' command not found in PATH, trying bun add -g @oh-my-pi/pi-coding-agent..."
+    echo "⚠️ Warning: 'omp' not found in PATH, trying bun add -g @oh-my-pi/pi-coding-agent..."
     bun add -g @oh-my-pi/pi-coding-agent
     export PATH="$HOME/.bun/bin:$PATH"
 fi
@@ -40,9 +44,8 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     source "$SCRIPT_DIR/.env"
     set +a
 else
-    echo "⚠️ .env file not found. Copying .env.example -> .env..."
+    echo "⚠️ .env not found. Creating .env from .env.example..."
     cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-    echo "📝 Created .env file. Please edit it with your bot token and settings."
 fi
 
 # 4. Check Telegram Bot Token
@@ -54,53 +57,28 @@ if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ "${TELEGRAM_BOT_TOKEN:-}" = "YOUR_TELEG
     exit 1
 fi
 
-# 5. Check OMP Authentication / API Keys
+# 5. Check OMP Authentication
 echo "🔑 Checking OMP authentication status..."
-HAS_AUTH=0
-
-if [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -n "${OPENROUTER_API_KEY:-}" ] || [ -n "${DEEPSEEK_API_KEY:-}" ]; then
-    HAS_AUTH=1
-fi
-
-if omp usage &> /dev/null; then
-    HAS_AUTH=1
-fi
-
-if [ "$HAS_AUTH" -eq 0 ]; then
+if ! omp usage &> /dev/null; then
     echo ""
     echo "=================================================="
-    echo " ⚠️ OMP не авторизован ни через OAuth, ни через API-ключи!"
+    echo " ⚠️ OMP не авторизован!"
     echo "=================================================="
-    echo "Для работы агенту нужен доступ к модели (Gemini, Claude, OpenAI и др.)."
-    echo ""
-    echo "Выберите способ авторизации:"
-    echo "  1) Запустить интерактивный вход в OMP прямо сейчас (OAuth Google Antigravity / Claude / OpenAI)"
-    echo "  2) Указать API-ключ в файле .env (GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY)"
-    echo "  3) Пропустить и продолжить запуск"
-    echo ""
-    read -r -p "Введите номер [1/2/3] (по умолчанию 1): " auth_choice || auth_choice="1"
-    auth_choice=${auth_choice:-1}
-
-    if [ "$auth_choice" = "1" ]; then
-        echo ""
-        echo "🚀 Запуск OMP... Авторизуйтесь через меню или выберите провайдера, затем закройте (/exit или Ctrl+C):"
-        echo "--------------------------------------------------"
-        omp || true
-        echo "--------------------------------------------------"
-        echo "✅ Авторизация OMP завершена."
-    elif [ "$auth_choice" = "2" ]; then
-        echo ""
-        echo "📝 Откройте .env и укажите ваш ключ:"
-        echo "  nano $SCRIPT_DIR/.env"
-        echo "Затем повторно запустите ./deploy.sh"
-        exit 0
-    fi
+    echo "Сейчас откроется интерфейс OMP."
+    echo "Авторизуйтесь (OAuth через браузер / Google / Claude / OpenAI)."
+    echo "После успешной авторизации выйдите (/exit или Ctrl+C)."
+    echo "--------------------------------------------------"
+    echo "Нажмите Enter, чтобы запустить OMP..."
+    read -r _ || true
+    omp || true
+    echo "--------------------------------------------------"
+    echo "✅ Возврат к запуску Telegram бота."
 fi
 
 # 6. Install package dependencies if needed
 cd "$SCRIPT_DIR"
 if [ ! -d "node_modules" ]; then
-    echo "📦 Installing bot dependencies..."
+    echo "📦 Installing bot dependencies (bun install)..."
     bun install
 fi
 

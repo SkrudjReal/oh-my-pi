@@ -517,7 +517,7 @@ export class MessageHandler {
       '<b><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Oh My Pi (omp) AI Agent Bridge</b>',
       "",
       '<blockquote expandable><tg-emoji emoji-id="6136387648886935976">👑</tg-emoji> <b>Автономный AI Ассистент с полным доступом к инструментам:</b>\n' +
-        `• <tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель:</b> <code>${session.model}</code>\n` +
+        `• <tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель:</b> <code>${session.model || "Авторизованная в OMP (Default)"}</code>\n` +
         `• <tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Режим:</b> <code>${session.approvalMode}</code>\n` +
         `• <tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Thinking:</b> <code>${this.config.defaultThinkingLevel}</code>\n` +
         `• <tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> <b>Воркспейс:</b> <code>${session.workspaceDir}</code></blockquote>`,
@@ -623,7 +623,7 @@ export class MessageHandler {
     }
 
     const text = [
-      `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Текущая модель:</b> <code>${session.model}</code></blockquote>`,
+      `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Текущая модель:</b> <code>${session.model || "Авторизованная в OMP (Default)"}</code></blockquote>`,
       "",
       '<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <i>Выберите модель из списка быстрых пресетов или введите команду <code>/model &lt;имя_модели&gt;</code>:</i>',
     ].join("\n");
