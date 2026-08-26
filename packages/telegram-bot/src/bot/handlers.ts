@@ -1,9 +1,9 @@
 /**
- * Telegram Message, Command & Callback Query Dispatcher with Interactive Keyboards.
+ * Telegram Message, Command & Callback Query Dispatcher with Interactive Keyboards
+ * and Native Telegram Premium Custom Emoji & Blockquote Styling.
  */
 
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import type { BotConfig } from "../core/config";
 import type {
   TelegramCallbackQuery,
@@ -126,7 +126,7 @@ export class MessageHandler {
       const msg = err instanceof Error ? err.message : String(err);
       await this.client.sendMessage(
         chatId,
-        `⚠️ <b>Agent error:</b> ${msg}`,
+        `<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Ошибка выполнения агента:</b>\n${msg}</blockquote>`,
         {
           message_thread_id: threadId,
           reply_to_message_id: message.message_id,
@@ -161,7 +161,7 @@ export class MessageHandler {
       await this.client.answerCallbackQuery(query.id, { text: "🧹 Контекст сессии очищен!" });
       await this.client.sendMessage(
         chatId,
-        "🧹 <b>Контекст диалога очищен.</b> Начат новый сеанс.",
+        '<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> <b>Контекст сессии успешно очищен.</b>\n<tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Готов к новым задачам с чистого листа.</blockquote>',
         { parse_mode: "HTML" },
       );
       return;
@@ -179,7 +179,7 @@ export class MessageHandler {
       await this.client.answerCallbackQuery(query.id, { text: `✅ Модель: ${modelName}` });
       await this.client.sendMessage(
         chatId,
-        `🎯 <b>Модель переключена:</b> <code>${modelName}</code>`,
+        `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель переключена:</b>\n<code>${modelName}</code></blockquote>`,
         { parse_mode: "HTML" },
       );
       return;
@@ -197,7 +197,7 @@ export class MessageHandler {
       await this.client.answerCallbackQuery(query.id, { text: `🛡 Режим: ${mode}` });
       await this.client.sendMessage(
         chatId,
-        `🛡 <b>Режим аппрува обновлен:</b> <code>${mode}</code>`,
+        `<blockquote><tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Режим подтверждения обновлен:</b>\n<code>${mode}</code></blockquote>`,
         { parse_mode: "HTML" },
       );
       return;
@@ -215,7 +215,7 @@ export class MessageHandler {
       await this.client.answerCallbackQuery(query.id, { text: `🧠 Thinking: ${level}` });
       await this.client.sendMessage(
         chatId,
-        `🧠 <b>Уровень размышлений (thinking) установлен:</b> <code>${level}</code>`,
+        `<blockquote><tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Уровень размышлений (thinking):</b>\n<code>${level}</code></blockquote>`,
         { parse_mode: "HTML" },
       );
       return;
@@ -268,16 +268,15 @@ export class MessageHandler {
     );
 
     const welcome = [
-      "🤖 <b>Oh My Pi (omp) AI Agent Bridge</b>",
+      '<b><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Oh My Pi (omp) AI Agent Bridge</b>',
       "",
-      "Универсальный автономный ассистент разработки с прямым доступом к IDE, инструментам выполнения команд, чтения и правки файлов, веб-поиску и стримингу в реальном времени.",
+      '<blockquote expandable><tg-emoji emoji-id="6136387648886935976">👑</tg-emoji> <b>Автономный AI Ассистент с полным доступом к инструментам:</b>\n' +
+        `• <tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель:</b> <code>${session.model}</code>\n` +
+        `• <tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Режим:</b> <code>${session.approvalMode}</code>\n` +
+        `• <tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Thinking:</b> <code>${this.config.defaultThinkingLevel}</code>\n` +
+        `• <tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> <b>Воркспейс:</b> <code>${session.workspaceDir}</code></blockquote>`,
       "",
-      `🎯 <b>Активная модель:</b> <code>${session.model}</code>`,
-      `🛡 <b>Режим аппрува:</b> <code>${session.approvalMode}</code>`,
-      `🧠 <b>Thinking level:</b> <code>${this.config.defaultThinkingLevel}</code>`,
-      `📁 <b>Воркспейс:</b> <code>${session.workspaceDir}</code>`,
-      "",
-      "<i>Отправьте задачу текстом, прикрепите код/фото/документ или воспользуйтесь кнопками быстрого управления:</i>",
+      '<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <i>Отправьте любую задачу кодом, прикрепите файлы/фото/голосовые или выберите действие ниже:</i>',
     ].join("\n");
 
     const keyboard: TelegramInlineKeyboardMarkup = {
@@ -314,29 +313,24 @@ export class MessageHandler {
 
   private async handleHelp(message: TelegramMessage): Promise<void> {
     const help = [
-      "📖 <b>Команды Oh My Pi (omp) Telegram Bot</b>",
+      '<b><tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> Команды и руководство OMP Telegram Bot</b>',
       "",
-      "<b>Управление сессией:</b>",
-      "• <code>/new</code>, <code>/clear</code> — Очистить контекст диалога и начать с чистого листа",
-      "• <code>/status</code> — Статус активного процесса, статистика токенов и аптайм",
-      "• <code>/cancel</code> — Немедленно прервать текущую запущенную задачу",
-      "• <code>/workspace</code> — Показать файлы и путь к рабочей директории чата",
-      "• <code>/compact</code> — Сжать контекст сессии (Snapcompact)",
+      '<blockquote expandable><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> <b>Управление сессией:</b>\n' +
+        "• <code>/new</code>, <code>/clear</code> — Очистить контекст диалога\n" +
+        "• <code>/status</code> — Статус активного процесса, токены и аптайм\n" +
+        "• <code>/cancel</code> — Немедленно прервать текущую запущенную задачу\n" +
+        "• <code>/workspace</code> — Показать файлы и путь к рабочей директории\n" +
+        "• <code>/compact</code> — Сжать контекст сессии (Snapcompact)</blockquote>",
       "",
-      "<b>Конфигурация агента:</b>",
-      "• <code>/model [имя]</code> — Сменить LLM модель (Gemini, Claude, GPT, DeepSeek)",
-      "• <code>/mode [yolo|write|always-ask]</code> — Настроить политику подтверждения инструментов",
-      "• <code>/thinking [off|low|medium|high]</code> — Настроить глубину размышлений",
-      "• <code>/tools</code> — Показать доступные инструменты агента",
-      "• <code>/skills</code> — Показать установленные навыки и расширения",
+      '<blockquote expandable><tg-emoji emoji-id="5348318754172331709">✏️</tg-emoji> <b>Конфигурация агента:</b>\n' +
+        "• <code>/model [имя]</code> — Сменить LLM модель (Gemini, Claude, GPT, DeepSeek)\n" +
+        "• <code>/mode [yolo|write|always-ask]</code> — Настроить подтверждение инструментов\n" +
+        "• <code>/thinking [off|low|medium|high]</code> — Настроить глубину размышлений\n" +
+        "• <code>/tools</code> — Показать доступные инструменты агента\n" +
+        "• <code>/skills</code> — Показать установленные навыки и расширения</blockquote>",
       "",
-      "<b>Интерактивная разметка & Премиум эмодзи:</b>",
-      "• Telegram Premium Custom Emoji: <code>&lt;tg-emoji emoji-id=\"...\"&gt;✨&lt;/tg-emoji&gt;</code>",
-      "• Telegram Reactions: <code>&lt;tg-react emoji=\"🔥\"/&gt;</code>",
-      "• Telegram Stickers: <code>&lt;tg-sticker tag=\"heart\"/&gt;</code>",
-      "",
-      "<b>Мультимодальность:</b>",
-      "Отправляйте изображения, архивы, код, документы и голосовые заметки — бот сохраняет их в рабочий каталог чата и подключает к анализу агента.",
+      '<blockquote><tg-emoji emoji-id="6136257464133228971">🦋</tg-emoji> <b>Мультимодальность:</b>\n' +
+        "Отправляйте изображения, архивы, код, документы и аудио — бот сохраняет их в рабочий каталог чата и подключает к анализу.</blockquote>",
     ].join("\n");
 
     await this.client.sendMessage(message.chat.id, help, {
@@ -350,7 +344,7 @@ export class MessageHandler {
     await this.agentBridge.resetSession(message.chat.id);
     await this.client.sendMessage(
       message.chat.id,
-      "🧹 <b>Контекст сессии очищен!</b>\nИстория диалога сброшена, готов к новым задачам.",
+      '<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> <b>Контекст сессии очищен!</b>\n<tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> История диалога сброшена, готов к новым задачам.</blockquote>',
       {
         message_thread_id: message.message_thread_id,
         reply_to_message_id: message.message_id,
@@ -371,7 +365,7 @@ export class MessageHandler {
       this.agentBridge.setModel(message.chat.id, modelName);
       await this.client.sendMessage(
         message.chat.id,
-        `✅ <b>Модель установлена:</b> <code>${modelName}</code>`,
+        `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель успешно установлена:</b>\n<code>${modelName}</code></blockquote>`,
         {
           message_thread_id: message.message_thread_id,
           reply_to_message_id: message.message_id,
@@ -382,9 +376,9 @@ export class MessageHandler {
     }
 
     const text = [
-      `🎯 <b>Текущая модель:</b> <code>${session.model}</code>`,
+      `<blockquote><tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Текущая модель:</b> <code>${session.model}</code></blockquote>`,
       "",
-      "Выберите модель из списка быстрых пресетов или введите команду вида <code>/model &lt;имя_модели&gt;</code>:",
+      '<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <i>Выберите модель из списка быстрых пресетов или введите команду <code>/model &lt;имя_модели&gt;</code>:</i>',
     ].join("\n");
 
     const keyboard: TelegramInlineKeyboardMarkup = {
@@ -424,7 +418,7 @@ export class MessageHandler {
       this.agentBridge.setApprovalMode(message.chat.id, mode);
       await this.client.sendMessage(
         message.chat.id,
-        `🛡 <b>Режим подтверждения инструментов обновлен:</b> <code>${mode}</code>`,
+        `<blockquote><tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Режим подтверждения инструментов:</b>\n<code>${mode}</code></blockquote>`,
         {
           message_thread_id: message.message_thread_id,
           reply_to_message_id: message.message_id,
@@ -435,24 +429,21 @@ export class MessageHandler {
     }
 
     const text = [
-      `🛡 <b>Текущий режим работы:</b> <code>${session.approvalMode}</code>`,
+      `<blockquote><tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Текущий режим:</b> <code>${session.approvalMode}</code></blockquote>`,
       "",
-      "<b>Выберите режим подтверждения действий:</b>",
-      "• <b>YOLO</b> — Полный авто-аппрув всех действий и терминала",
-      "• <b>Write</b> — Авто-аппрув чтения/поиска, запрос на запись",
-      "• <b>Always-Ask</b> — Запрос подтверждения на каждую операцию",
+      '<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <b>Выберите политику выполнения инструментов:</b>',
     ].join("\n");
 
     const keyboard: TelegramInlineKeyboardMarkup = {
       inline_keyboard: [
         [
-          { text: "⚡ YOLO (Авто-аппрув)", callback_data: "set_mode:yolo" },
+          { text: "⚡ YOLO (Полный авто-аппрув)", callback_data: "set_mode:yolo" },
         ],
         [
           { text: "✏️ Write (Запрос на запись)", callback_data: "set_mode:write" },
         ],
         [
-          { text: "🛡 Always Ask (Строгий)", callback_data: "set_mode:always-ask" },
+          { text: "🛡 Always Ask (Строгий режим)", callback_data: "set_mode:always-ask" },
         ],
       ],
     };
@@ -471,7 +462,7 @@ export class MessageHandler {
       this.config.defaultThinkingLevel = level;
       await this.client.sendMessage(
         message.chat.id,
-        `🧠 <b>Уровень размышлений (thinking) установлен:</b> <code>${level}</code>`,
+        `<blockquote><tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Thinking level установлен:</b> <code>${level}</code></blockquote>`,
         {
           message_thread_id: message.message_thread_id,
           reply_to_message_id: message.message_id,
@@ -482,9 +473,9 @@ export class MessageHandler {
     }
 
     const text = [
-      `🧠 <b>Текущий уровень размышлений:</b> <code>${this.config.defaultThinkingLevel}</code>`,
+      `<blockquote><tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Текущий уровень размышлений:</b> <code>${this.config.defaultThinkingLevel}</code></blockquote>`,
       "",
-      "Выберите глубину цепочки рассуждений (thinking/reasoning):",
+      '<tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <i>Выберите глубину цепочки рассуждений (reasoning):</i>',
     ].join("\n");
 
     const keyboard: TelegramInlineKeyboardMarkup = {
@@ -518,16 +509,15 @@ export class MessageHandler {
     const secs = uptimeSec % 60;
 
     const status = [
-      "📊 <b>Статус сессии OMP Agent</b>",
-      "",
-      `🎯 <b>Модель:</b> <code>${session.model}</code>`,
-      `🛡 <b>Режим:</b> <code>${session.approvalMode}</code>`,
-      `🧠 <b>Thinking:</b> <code>${this.config.defaultThinkingLevel}</code>`,
-      `⚡ <b>Активен:</b> <code>${session.isRunning ? "🟢 В процессе выполнения" : "⚪ Ожидание команды"}</code>`,
-      `🔢 <b>Расход токенов:</b> <code>${session.totalTokens.toLocaleString()}</code>`,
-      `💰 <b>Ориентир. затраты:</b> <code>$${session.totalCost.toFixed(4)}</code>`,
-      `⏱ <b>Длительность сессии:</b> <code>${mins}м ${secs}с</code>`,
-      `📁 <b>Воркспейс:</b> <code>${session.workspaceDir}</code>`,
+      '<blockquote expandable><tg-emoji emoji-id="6136387648886935976">👑</tg-emoji> <b>Статус сессии OMP Agent:</b>\n' +
+        `• <tg-emoji emoji-id="6136441086870033177">🌟</tg-emoji> <b>Модель:</b> <code>${session.model}</code>\n` +
+        `• <tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> <b>Режим:</b> <code>${session.approvalMode}</code>\n` +
+        `• <tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Thinking:</b> <code>${this.config.defaultThinkingLevel}</code>\n` +
+        `• <tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> <b>Активен:</b> <code>${session.isRunning ? "🟢 Выполняется" : "⚪ Ожидание"}</code>\n` +
+        `• <tg-emoji emoji-id="5350809706354993830">💸</tg-emoji> <b>Токены:</b> <code>${session.totalTokens.toLocaleString()}</code>\n` +
+        `• <tg-emoji emoji-id="5350809706354993830">💸</tg-emoji> <b>Затраты:</b> <code>$${session.totalCost.toFixed(4)}</code>\n` +
+        `• <tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> <b>Аптайм:</b> <code>${mins}м ${secs}с</code>\n` +
+        `• <tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> <b>Воркспейс:</b> <code>${session.workspaceDir}</code></blockquote>`,
     ].join("\n");
 
     const keyboard: TelegramInlineKeyboardMarkup = {
@@ -549,19 +539,20 @@ export class MessageHandler {
 
   private async handleTools(message: TelegramMessage): Promise<void> {
     const tools = [
-      "🛠 <b>Доступные инструменты OMP Agent:</b>",
+      '<b><tg-emoji emoji-id="5348318754172331709">✏️</tg-emoji> Доступные инструменты OMP Agent:</b>',
       "",
-      "• <code>bash</code> — Выполнение команд терминала в изолированном окружении",
-      "• <code>read</code> — Чтение файлов, архивов, sqlite баз и веб-страниц",
-      "• <code>edit</code> — Точечное редактирование файлов по строкам и блокам",
-      "• <code>write</code> — Создание и перезапись файлов",
-      "• <code>grep</code> — Быстрый поиск по содержимому (встроенный Rust regex)",
-      "• <code>glob</code> — Поиск путей и структуры файлов по шаблонам",
-      "• <code>lsp</code> — Анализ кода и навигация по символам через языковые серверы",
-      "• <code>web_search</code> — Актуальный поиск в интернете",
-      "• <code>task</code> — Запуск параллельных саб-агентов для масштабных задач",
-      "• <code>todo</code> — Управление пошаговым чеклистом задач",
-      "• <code>browser</code> — Автоматизация браузера (Chromium / Puppeteer)",
+      '<blockquote expandable><tg-emoji emoji-id="6138837841829957663">⚡️</tg-emoji> <b>Системные инструменты:</b>\n' +
+        "• <code>bash</code> — Выполнение команд терминала\n" +
+        "• <code>read</code> — Чтение файлов, архивов, sqlite и URL\n" +
+        "• <code>edit</code> — Точечное редактирование файлов\n" +
+        "• <code>write</code> — Создание и перезапись файлов\n" +
+        "• <code>grep</code> — Быстрый поиск regex в проекте\n" +
+        "• <code>glob</code> — Поиск файлов по маске\n" +
+        "• <code>lsp</code> — Навигация и рефакторинг через Language Servers\n" +
+        "• <code>web_search</code> — Актуальный поиск в сети\n" +
+        "• <code>task</code> — Параллельные субагенты\n" +
+        "• <code>todo</code> — Ведение чеклиста задач\n" +
+        "• <code>browser</code> — Автоматизация Chromium / Puppeteer</blockquote>",
     ].join("\n");
 
     await this.client.sendMessage(message.chat.id, tools, {
@@ -573,12 +564,13 @@ export class MessageHandler {
 
   private async handleSkills(message: TelegramMessage): Promise<void> {
     const skills = [
-      "🧩 <b>Активные скиллы OMP:</b>",
+      '<b><tg-emoji emoji-id="6136408896090150077">💎</tg-emoji> Активные скиллы OMP:</b>',
       "",
-      "• <b>omp-telegram-bot</b> — Развёртывание и поддержка Telegram-ботов для OMP",
-      "• <b>telegram-premium-emoji</b> — Поддержка Telegram Premium custom emoji, реакций и стикеров",
-      "• <b>clean-code & refactoring</b> — Стандарты чистоты кода и архитектуры",
-      "• <b>systematic-debugging</b> — Пошаговая диагностика и устранение багов",
+      '<blockquote expandable><tg-emoji emoji-id="6136257464133228971">🦋</tg-emoji> <b>Подключенные расширения:</b>\n' +
+        "• <b>omp-telegram-bot</b> — Управление и деплой Telegram-ботов для OMP\n" +
+        "• <b>telegram-premium-emoji</b> — Telegram Premium Custom Emojis & Blockquote styling\n" +
+        "• <b>clean-code & refactoring</b> — Стандарты качества кода\n" +
+        "• <b>systematic-debugging</b> — Пошаговая отладка</blockquote>",
     ].join("\n");
 
     await this.client.sendMessage(message.chat.id, skills, {
@@ -595,7 +587,7 @@ export class MessageHandler {
       message.from?.username,
     );
 
-    let filesList = "(пусто)";
+    let filesList = "(директория пуста)";
     try {
       const entries = await fs.readdir(session.workspaceDir);
       if (entries.length > 0) {
@@ -606,11 +598,9 @@ export class MessageHandler {
     }
 
     const text = [
-      "📁 <b>Рабочая директория (Workspace):</b>",
-      `<code>${session.workspaceDir}</code>`,
+      `<blockquote><tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> <b>Рабочая директория (Workspace):</b>\n<code>${session.workspaceDir}</code></blockquote>`,
       "",
-      "<b>Файлы в воркспейсе:</b>",
-      filesList,
+      `<blockquote expandable><tg-emoji emoji-id="5348202175875016422">📖</tg-emoji> <b>Файлы в воркспейсе:</b>\n${filesList}</blockquote>`,
     ].join("\n");
 
     await this.client.sendMessage(message.chat.id, text, {
@@ -623,7 +613,7 @@ export class MessageHandler {
   private async handleCompact(message: TelegramMessage): Promise<void> {
     await this.client.sendMessage(
       message.chat.id,
-      "🗜 <b>Сжатие контекста:</b> Snapcompact оптимизирует историю диалога без потери ключевых фактов.",
+      '<blockquote><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> <b>Сжатие контекста:</b>\nSnapcompact оптимизирует историю сессии для экономии токенов без потери фактов.</blockquote>',
       {
         message_thread_id: message.message_thread_id,
         reply_to_message_id: message.message_id,
@@ -637,7 +627,7 @@ export class MessageHandler {
     if (cancelled) {
       await this.client.sendMessage(
         message.chat.id,
-        "🛑 <b>Задача прервана</b>\nАктивный процесс агента был успешно остановлен.",
+        '<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Задача остановлена:</b>\nАктивный процесс агента был немедленно прерван.</blockquote>',
         {
           message_thread_id: message.message_thread_id,
           reply_to_message_id: message.message_id,
@@ -647,7 +637,7 @@ export class MessageHandler {
     } else {
       await this.client.sendMessage(
         message.chat.id,
-        "ℹ️ В данный момент нет активных задач для отмены.",
+        '<blockquote><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> В данный момент нет активных задач для отмены.</blockquote>',
         {
           message_thread_id: message.message_thread_id,
           reply_to_message_id: message.message_id,
