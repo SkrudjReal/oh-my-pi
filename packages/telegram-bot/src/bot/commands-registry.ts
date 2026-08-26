@@ -16,6 +16,7 @@ export const USER_COMMANDS: TelegramBotCommand[] = [
   { command: "status", description: "📊 Статус сессии и расход токенов" },
   { command: "tools", description: "🛠 Список инструментов агента" },
   { command: "skills", description: "🧩 Список активных скиллов" },
+  { command: "topic", description: "🧵 Управление топиками супергрупп" },
   { command: "cancel", description: "🛑 Прервать текущую задачу" },
   { command: "help", description: "📖 Полное руководство и команды" },
 ];

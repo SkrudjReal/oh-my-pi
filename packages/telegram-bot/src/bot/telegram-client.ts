@@ -297,6 +297,14 @@ export class TelegramClient {
     }
   }
 
+  async getChat(chat_id: number | string, signal?: AbortSignal): Promise<any> {
+    return this.request<any>("getChat", { chat_id }, 3, signal);
+  }
+
+  async getChatMember(chat_id: number | string, user_id: number, signal?: AbortSignal): Promise<any> {
+    return this.request<any>("getChatMember", { chat_id, user_id }, 3, signal);
+  }
+
   async getFile(file_id: string, signal?: AbortSignal): Promise<TelegramFile> {
     return this.request<TelegramFile>("getFile", { file_id }, 3, signal);
   }

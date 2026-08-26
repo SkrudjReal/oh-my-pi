@@ -4,10 +4,10 @@
 
 import type { BotConfig } from "../core/config";
 import { AgentBridge } from "../services/agent-bridge";
+import { TopicManager } from "../services/topics";
 import { setBotCommands } from "./commands-registry";
 import { MessageHandler } from "./handlers";
 import { TelegramClient } from "./telegram-client";
-
 export class OmpTelegramBot {
   private readonly client: TelegramClient;
   private readonly agentBridge: AgentBridge;
@@ -15,12 +15,19 @@ export class OmpTelegramBot {
   private isRunning = false;
   private abortController: AbortController = new AbortController();
 
+  private readonly topicManager: TopicManager;
+
   constructor(private readonly config: BotConfig) {
     this.client = new TelegramClient(config.telegramToken);
     this.agentBridge = new AgentBridge(config);
-    this.messageHandler = new MessageHandler(this.client, this.agentBridge, config);
+    this.topicManager = new TopicManager();
+    this.messageHandler = new MessageHandler(
+      this.client,
+      this.agentBridge,
+      config,
+      this.topicManager,
+    );
   }
-
   async start(): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -33,6 +40,9 @@ export class OmpTelegramBot {
     console.log(`🛡 Access Mode: ${this.config.isPublicMode ? "PUBLIC (All Users Allowed)" : "RESTRICTED (Owner / Whitelist Only)"}`);
     console.log(`📁 Workspace Root: ${this.config.workspaceRoot}`);
     console.log(`⚡ Streaming Enabled: ${this.config.enableStreaming ? "YES" : "NO"}`);
+    // Load active forum topics
+    await this.topicManager.load();
+
 
     // Set Telegram native "/" command popup menu
     await setBotCommands(this.client, this.config);

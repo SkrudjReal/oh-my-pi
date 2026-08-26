@@ -1,10 +1,11 @@
 /**
  * Magic Filters & Middleware Pipeline for OMP Telegram Bot.
- * Enforces strict Owner & ACL authorization boundaries with Telegram Premium formatting.
+ * Enforces strict Owner, ACL & Forum Topic isolation boundaries.
  */
 
 import type { BotConfig } from "../core/config";
 import type { TelegramMessage, TelegramUser } from "../core/types";
+import type { TopicManager } from "../services/topics";
 import type { TelegramClient } from "./telegram-client";
 
 /**
@@ -42,6 +43,10 @@ export const F = {
     return message.chat.type === "private";
   },
 
+  isGroupChat: (message: TelegramMessage): boolean => {
+    return message.chat.type === "group" || message.chat.type === "supergroup";
+  },
+
   hasCommand: (message: TelegramMessage, commandName: string): boolean => {
     const text = (message.text || message.caption || "").trim();
     if (!text.startsWith("/")) return false;
@@ -51,17 +56,42 @@ export const F = {
 };
 
 /**
- * Strict Owner / ACL Authentication Middleware.
+ * Strict Owner, ACL & Topic Authentication Middleware.
  * Intercepts incoming messages before any command or agent execution.
  */
 export async function authenticateUpdate(
   message: TelegramMessage,
   config: BotConfig,
   client: TelegramClient,
+  topicManager?: TopicManager,
 ): Promise<boolean> {
   const user = message.from;
-  const isAllowed = F.isAuthorized(user, config);
+  const isPrivate = F.isPrivateChat(message);
 
+  // 1. Group / Forum Supergroup Thread Routing
+  if (!isPrivate) {
+    const text = (message.text || message.caption || "").trim();
+    // Allow topic management commands from admins/owners
+    if (text.startsWith("/topic") || text.startsWith("/topics")) {
+      return F.isAdmin(user, config) || F.isOwner(user, config);
+    }
+
+    // Check if the current thread/topic is registered and active
+    if (topicManager) {
+      const isTopicActive = await topicManager.isTopicActive(
+        message.chat.id,
+        message.message_thread_id,
+      );
+      if (!isTopicActive) {
+        // Silently drop messages from unconfigured group threads
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // 2. Private Chat Authorization
+  const isAllowed = F.isAuthorized(user, config);
   if (!isAllowed) {
     const userId = user?.id || 0;
     const username = user?.username ? `@${user.username}` : "Unknown";

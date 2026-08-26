@@ -1,6 +1,6 @@
 /**
- * Telegram Message, Command & Callback Query Dispatcher with Interactive Keyboards
- * and Native Telegram Premium Custom Emoji & Blockquote Styling.
+ * Telegram Message, Command & Callback Query Dispatcher with Interactive Keyboards,
+ * Forum Topic / Thread Routing, and Native Telegram Premium Custom Emoji Styling.
  */
 
 import * as fs from "node:fs/promises";
@@ -13,6 +13,7 @@ import type {
 import type { AgentBridge } from "../services/agent-bridge";
 import { extractMessageContext } from "../services/attachments";
 import { TelegramStreamConsumer } from "../services/streamer";
+import type { TopicManager } from "../services/topics";
 import { authenticateUpdate, F } from "./middlewares";
 import type { TelegramClient } from "./telegram-client";
 
@@ -21,11 +22,17 @@ export class MessageHandler {
     private readonly client: TelegramClient,
     private readonly agentBridge: AgentBridge,
     private readonly config: BotConfig,
+    private readonly topicManager: TopicManager,
   ) {}
 
   async handleMessage(message: TelegramMessage): Promise<void> {
-    // 1. Strict Middleware Authentication
-    const isAllowed = await authenticateUpdate(message, this.config, this.client);
+    // 1. Strict Middleware Authentication & Forum Topic isolation
+    const isAllowed = await authenticateUpdate(
+      message,
+      this.config,
+      this.client,
+      this.topicManager,
+    );
     if (!isAllowed) {
       return;
     }
@@ -36,7 +43,13 @@ export class MessageHandler {
     const username = message.from?.username;
     const text = (message.text || message.caption || "").trim();
 
-    // 2. Command Routing
+    // 2. Direct Topic Link Ingestion in Private Chat
+    if (F.isPrivateChat(message) && this.topicManager.parseTopicLink(text)) {
+      await this.handleTopicAddLink(message, text);
+      return;
+    }
+
+    // 3. Command Routing
     if (text.startsWith("/")) {
       const parts = text.split(/\s+/);
       const command = parts[0].toLowerCase().split("@")[0];
@@ -90,6 +103,11 @@ export class MessageHandler {
           await this.handleCompact(message);
           return;
 
+        case "/topic":
+        case "/topics":
+          await this.handleTopic(message, args);
+          return;
+
         case "/cancel":
         case "/stop":
           await this.handleCancel(message);
@@ -101,7 +119,7 @@ export class MessageHandler {
       }
     }
 
-    // 3. Regular Prompt / Attachment Execution
+    // 4. Regular Prompt / Attachment Execution
     const session = await this.agentBridge.getOrCreateSession(chatId, userId, username);
     const { promptText } = await extractMessageContext(message, session.workspaceDir, this.client);
 
@@ -257,7 +275,235 @@ export class MessageHandler {
       return;
     }
 
+    // Forum Topics Callbacks
+    if (data === "topic_add_prompt") {
+      await this.client.answerCallbackQuery(query.id);
+      const text = [
+        '<b><tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> Подключение Telegram топика</b>',
+        "",
+        "<blockquote>Отправьте внутреннюю ссылку на топик в супергруппе в формате:\n<code>https://t.me/c/4488980222/5</code></blockquote>",
+        "",
+        '<tg-emoji emoji-id="5305423313764363203">🤫</tg-emoji> <i>Как получить ссылку: в Telegram нажмите правой кнопкой (или долгим тапом) на топик → «Скопировать ссылку на топик».</i>',
+      ].join("\n");
+      await this.client.sendMessage(chatId, text, { parse_mode: "HTML" });
+      return;
+    }
+
+    if (data === "topic_list") {
+      await this.client.answerCallbackQuery(query.id);
+      await this.handleTopic(message, "list");
+      return;
+    }
+
+    if (data === "topic_remove_menu") {
+      await this.client.answerCallbackQuery(query.id);
+      const topics = await this.topicManager.listTopics();
+      if (topics.length === 0) {
+        await this.client.sendMessage(
+          chatId,
+          '<blockquote><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Нет активных подключенных топиков.</blockquote>',
+          { parse_mode: "HTML" },
+        );
+        return;
+      }
+
+      const buttons = topics.map((t) => [
+        {
+          text: `🗑 ${t.chat_title} (ID: ${t.topic_id})`,
+          callback_data: `topic_del:${t.chat_id}:${t.topic_id}`,
+        },
+      ]);
+
+      await this.client.sendMessage(
+        chatId,
+        '<b><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> Выберите топик для отключения:</b>',
+        {
+          reply_markup: { inline_keyboard: buttons },
+          parse_mode: "HTML",
+        },
+      );
+      return;
+    }
+
+    if (data.startsWith("topic_del:")) {
+      const parts = data.slice("topic_del:".length).split(":");
+      const targetChatId = Number(parts[0]);
+      const targetTopicId = Number(parts[1]);
+      await this.topicManager.removeTopic(targetChatId, targetTopicId);
+      await this.client.answerCallbackQuery(query.id, { text: "🗑 Топик отключен!" });
+      await this.client.sendMessage(
+        chatId,
+        `<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> Топик <code>${targetChatId}:${targetTopicId}</code> успешно удален из маршрутизации.</blockquote>`,
+        { parse_mode: "HTML" },
+      );
+      return;
+    }
+
     await this.client.answerCallbackQuery(query.id);
+  }
+
+  private async handleTopic(message: TelegramMessage, args: string): Promise<void> {
+    const trimmed = args.trim();
+
+    // 1. /topic add <link>
+    if (trimmed.startsWith("add ")) {
+      const url = trimmed.slice(4).trim();
+      await this.handleTopicAddLink(message, url);
+      return;
+    }
+
+    // 2. /topic list
+    if (trimmed === "list") {
+      const topics = await this.topicManager.listTopics();
+      if (topics.length === 0) {
+        await this.client.sendMessage(
+          message.chat.id,
+          '<blockquote><tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> <b>Активные топики отсутствуют.</b>\nИспользуйте <code>/topic add &lt;ссылка&gt;</code> для подключения.</blockquote>',
+          {
+            message_thread_id: message.message_thread_id,
+            reply_to_message_id: message.message_id,
+            parse_mode: "HTML",
+          },
+        );
+        return;
+      }
+
+      const listLines = topics
+        .map(
+          (t, i) =>
+            `${i + 1}. <b>${t.chat_title}</b>\n` +
+            `   • Chat ID: <code>${t.chat_id}</code>\n` +
+            `   • Topic ID: <code>${t.topic_id}</code>`,
+        )
+        .join("\n\n");
+
+      const text = [
+        '<b><tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> Подключенные Telegram топики:</b>',
+        "",
+        `<blockquote expandable>${listLines}</blockquote>`,
+      ].join("\n");
+
+      await this.client.sendMessage(message.chat.id, text, {
+        message_thread_id: message.message_thread_id,
+        reply_to_message_id: message.message_id,
+        parse_mode: "HTML",
+      });
+      return;
+    }
+
+    // 3. /topic enable / activate inside group
+    if (
+      (trimmed === "enable" || trimmed === "activate" || trimmed === "") &&
+      F.isGroupChat(message) &&
+      message.message_thread_id
+    ) {
+      const title = message.chat.title || `Chat ${message.chat.id}`;
+      await this.topicManager.addTopic(
+        message.chat.id,
+        message.message_thread_id,
+        title,
+        message.from?.id || 0,
+      );
+
+      await this.client.sendMessage(
+        message.chat.id,
+        `<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> <b>Топик успешно активирован!</b>\nOMP агент теперь отвечает в ветке <code>${message.message_thread_id}</code> группы <b>${title}</b>.</blockquote>`,
+        {
+          message_thread_id: message.message_thread_id,
+          reply_to_message_id: message.message_id,
+          parse_mode: "HTML",
+        },
+      );
+      return;
+    }
+
+    // 4. Interactive menu for /topic
+    const menuText = [
+      '<b><tg-emoji emoji-id="5348222744473398688">📁</tg-emoji> Управление топиками супергрупп (Forum Threads)</b>',
+      "",
+      "<blockquote>Подключайте агента к отдельным топикам групп, чтобы бот отвечал только в нужных ветках и не спамил в общие чаты.</blockquote>",
+      "",
+      "<b>Команды:</b>",
+      "• <code>/topic add &lt;ссылка_на_топик&gt;</code> — Подключить топик по ссылке",
+      "• <code>/topic list</code> — Список активных топиков",
+      "• <code>/topic enable</code> — Активировать текущий топик (при вызове внутри группы)",
+    ].join("\n");
+
+    const keyboard: TelegramInlineKeyboardMarkup = {
+      inline_keyboard: [
+        [
+          { text: "➕ Добавить топик по ссылке", callback_data: "topic_add_prompt" },
+        ],
+        [
+          { text: "📑 Список топиков", callback_data: "topic_list" },
+          { text: "🗑 Отключить топик", callback_data: "topic_remove_menu" },
+        ],
+      ],
+    };
+
+    await this.client.sendMessage(message.chat.id, menuText, {
+      message_thread_id: message.message_thread_id,
+      reply_to_message_id: message.message_id,
+      reply_markup: keyboard,
+      parse_mode: "HTML",
+    });
+  }
+
+  private async handleTopicAddLink(message: TelegramMessage, url: string): Promise<void> {
+    const parsed = this.topicManager.parseTopicLink(url);
+    if (!parsed) {
+      await this.client.sendMessage(
+        message.chat.id,
+        '<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Неверный формат ссылки на топик!</b>\nИспользуйте формат: <code>https://t.me/c/4488980222/5</code></blockquote>',
+        {
+          message_thread_id: message.message_thread_id,
+          reply_to_message_id: message.message_id,
+          parse_mode: "HTML",
+        },
+      );
+      return;
+    }
+
+    const botMe = await this.client.getMe();
+    const check = await this.topicManager.checkBotInChat(this.client, parsed.chatId, botMe.id);
+
+    if (!check.inChat) {
+      await this.client.sendMessage(
+        message.chat.id,
+        `<blockquote><tg-emoji emoji-id="5305423313764363203">🤫</tg-emoji> <b>Бот пока не добавлен в целевую группу!</b>\n` +
+          `Chat ID: <code>${parsed.chatId}</code>\n` +
+          `1. Добавьте бота @${botMe.username} в группу администратором или участником.\n` +
+          `2. Отправьте ссылку на топик повторно.</blockquote>`,
+        {
+          message_thread_id: message.message_thread_id,
+          reply_to_message_id: message.message_id,
+          parse_mode: "HTML",
+        },
+      );
+      return;
+    }
+
+    const title = check.chatTitle || `Chat ${parsed.chatId}`;
+    await this.topicManager.addTopic(
+      parsed.chatId,
+      parsed.topicId,
+      title,
+      message.from?.id || 0,
+    );
+
+    await this.client.sendMessage(
+      message.chat.id,
+      `<blockquote><tg-emoji emoji-id="6138879610386912023">✅</tg-emoji> <b>Топик успешно подключен и активирован!</b>\n` +
+        `• <b>Группа:</b> ${title}\n` +
+        `• <b>Topic ID:</b> <code>${parsed.topicId}</code>\n` +
+        `• <b>Chat ID:</b> <code>${parsed.chatId}</code>\n` +
+        `<tg-emoji emoji-id="6136155901041578903">✨</tg-emoji> Сообщения из этого топика теперь обрабатываются агентом.</blockquote>`,
+      {
+        message_thread_id: message.message_thread_id,
+        reply_to_message_id: message.message_id,
+        parse_mode: "HTML",
+      },
+    );
   }
 
   private async handleStart(message: TelegramMessage): Promise<void> {
@@ -291,11 +537,11 @@ export class MessageHandler {
         ],
         [
           { text: "🛠 Инструменты", callback_data: "cmd_tools" },
-          { text: "🧩 Скиллы", callback_data: "cmd_skills" },
+          { text: "📁 Топики групп", callback_data: "topic_list" },
         ],
         [
           { text: "📊 Статус сессии", callback_data: "cmd_status" },
-          { text: "📁 Воркспейс", callback_data: "cmd_workspace" },
+          { text: "🧩 Скиллы", callback_data: "cmd_skills" },
         ],
         [
           { text: "📖 Справка и документация", callback_data: "cmd_help" },
@@ -320,6 +566,7 @@ export class MessageHandler {
         "• <code>/status</code> — Статус активного процесса, токены и аптайм\n" +
         "• <code>/cancel</code> — Немедленно прервать текущую запущенную задачу\n" +
         "• <code>/workspace</code> — Показать файлы и путь к рабочей директории\n" +
+        "• <code>/topic</code> — Управление подключенными топиками супергрупп\n" +
         "• <code>/compact</code> — Сжать контекст сессии (Snapcompact)</blockquote>",
       "",
       '<blockquote expandable><tg-emoji emoji-id="5348318754172331709">✏️</tg-emoji> <b>Конфигурация агента:</b>\n' +
@@ -568,6 +815,7 @@ export class MessageHandler {
       "",
       '<blockquote expandable><tg-emoji emoji-id="6136257464133228971">🦋</tg-emoji> <b>Подключенные расширения:</b>\n' +
         "• <b>omp-telegram-bot</b> — Управление и деплой Telegram-ботов для OMP\n" +
+        "• <b>telegram-topic-manager</b> — Маршрутизация и изоляция топиков супергрупп\n" +
         "• <b>telegram-premium-emoji</b> — Telegram Premium Custom Emojis & Blockquote styling\n" +
         "• <b>clean-code & refactoring</b> — Стандарты качества кода\n" +
         "• <b>systematic-debugging</b> — Пошаговая отладка</blockquote>",
