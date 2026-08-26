@@ -1,12 +1,14 @@
 /**
  * Agent Bridge: Spawns and manages OMP subprocess instances with JSON streaming,
- * per-chat session directories, workspace management, and concurrency locking.
+ * per-chat session directories, workspace management, stderr capture, and concurrency locking.
  */
 
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { BotConfig } from "../core/config";
 import type { ChatSessionState, OmpStreamEvent } from "../core/types";
+import { escapeHtml } from "./formatter";
 import type { TelegramStreamConsumer } from "./streamer";
 
 export class AgentBridge {
@@ -15,6 +17,38 @@ export class AgentBridge {
 
   constructor(config: BotConfig) {
     this.config = config;
+  }
+
+  /**
+   * Resolves the OMP executable path reliably across environments.
+   */
+  private async resolveOmpExecutable(): Promise<string> {
+    const home = os.homedir();
+    const candidates = [
+      this.config.ompExecutable,
+      process.env.OMP_BIN,
+      path.join(home, ".bun", "bin", "omp"),
+      "/usr/local/bin/omp",
+      "/usr/bin/omp",
+      "omp",
+    ].filter((p): p is string => Boolean(p));
+
+    for (const candidate of candidates) {
+      try {
+        if (candidate.includes(path.sep)) {
+          await fs.access(candidate);
+          return candidate;
+        }
+        // Test binary lookup via which
+        const testProc = Bun.spawn(["which", candidate], { stdout: "pipe", stderr: "pipe" });
+        const text = (await new Response(testProc.stdout).text()).trim();
+        if (text) return text;
+      } catch {
+        // Continue search
+      }
+    }
+
+    return "omp";
   }
 
   async getOrCreateSession(chatId: number, userId: number, username?: string): Promise<ChatSessionState> {
@@ -112,6 +146,8 @@ export class AgentBridge {
     const abortController = new AbortController();
     session.currentProcessAbortController = abortController;
 
+    const ompBin = await this.resolveOmpExecutable();
+
     const args = [
       "--mode",
       "json",
@@ -144,11 +180,25 @@ export class AgentBridge {
 
     await streamer.start();
 
+    let hasStreamedText = false;
+    let stderrOutput = "";
+    let nonJsonStdout = "";
+
     try {
-      const proc = Bun.spawn([this.config.ompExecutable, ...args], {
+      const home = os.homedir();
+      const customPath = [
+        path.join(home, ".bun", "bin"),
+        path.join(home, ".local", "bin"),
+        "/usr/local/bin",
+        "/usr/bin",
+        process.env.PATH || "",
+      ].join(":");
+
+      const proc = Bun.spawn([ompBin, ...args], {
         cwd: session.workspaceDir,
         env: {
           ...process.env,
+          PATH: customPath,
           OMP_AUTO_APPROVE: session.approvalMode,
         },
         stdout: "pipe",
@@ -156,8 +206,24 @@ export class AgentBridge {
         signal: abortController.signal,
       });
 
-      const stdoutReader = proc.stdout.getReader();
       const decoder = new TextDecoder();
+
+      // Read stderr in background
+      const stderrPromise = (async () => {
+        try {
+          const stderrReader = proc.stderr.getReader();
+          while (true) {
+            const { done, value } = await stderrReader.read();
+            if (done) break;
+            stderrOutput += decoder.decode(value, { stream: true });
+          }
+        } catch {
+          // Ignored
+        }
+      })();
+
+      // Read stdout JSON stream
+      const stdoutReader = proc.stdout.getReader();
       let buffer = "";
 
       while (true) {
@@ -170,33 +236,64 @@ export class AgentBridge {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("{")) continue;
+          if (!trimmed) continue;
 
-          try {
-            const event = JSON.parse(trimmed) as OmpStreamEvent;
-            this.handleStreamEvent(event, streamer, session);
-          } catch {
-            // Ignore non-JSON or partial lines
+          if (trimmed.startsWith("{")) {
+            try {
+              const event = JSON.parse(trimmed) as OmpStreamEvent;
+              if (this.handleStreamEvent(event, streamer, session)) {
+                hasStreamedText = true;
+              }
+            } catch {
+              nonJsonStdout += `${trimmed}\n`;
+            }
+          } else {
+            nonJsonStdout += `${trimmed}\n`;
           }
         }
       }
 
-      if (buffer.trim().startsWith("{")) {
-        try {
-          const event = JSON.parse(buffer.trim()) as OmpStreamEvent;
-          this.handleStreamEvent(event, streamer, session);
-        } catch {
-          // Ignore
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith("{")) {
+          try {
+            const event = JSON.parse(trimmed) as OmpStreamEvent;
+            if (this.handleStreamEvent(event, streamer, session)) {
+              hasStreamedText = true;
+            }
+          } catch {
+            nonJsonStdout += `${trimmed}\n`;
+          }
+        } else {
+          nonJsonStdout += `${trimmed}\n`;
         }
       }
 
-      await proc.exited;
+      await Promise.all([proc.exited, stderrPromise]);
+
+      const exitCode = proc.exitCode;
+      if (exitCode !== 0 || !hasStreamedText) {
+        const fullError = (stderrOutput + "\n" + nonJsonStdout).trim();
+        if (fullError && !abortController.signal.aborted) {
+          console.error(`[OMP Process Exit ${exitCode}]:`, fullError);
+          streamer.onTextDelta(
+            `\n\n<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Ошибка выполнения OMP:</b>\n<code>${escapeHtml(fullError.slice(0, 1500))}</code></blockquote>\n\n` +
+              '<tg-emoji emoji-id="5305423313764363203">🤫</tg-emoji> <i>Убедитесь, что в .env настроен API-ключ (например, GEMINI_API_KEY, OPENAI_API_KEY или ANTHROPIC_API_KEY).</i>',
+          );
+        } else if (!hasStreamedText && !abortController.signal.aborted) {
+          streamer.onTextDelta(
+            '\n\n<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Агент завершил работу без ответа.</b>\nПроверьте наличие API-ключей в .env (например, GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY).</blockquote>',
+          );
+        }
+      }
     } catch (err: unknown) {
       if (abortController.signal.aborted) {
-        streamer.onTextDelta("\n\n<i>⛔ Task cancelled by user.</i>");
+        streamer.onTextDelta("\n\n<i>⛔ Задача прервана пользователем.</i>");
       } else {
         const msg = err instanceof Error ? err.message : String(err);
-        streamer.onTextDelta(`\n\n⚠️ <b>Execution error:</b> ${msg}`);
+        streamer.onTextDelta(
+          `\n\n<blockquote><tg-emoji emoji-id="5350400112503845756">🔥</tg-emoji> <b>Системная ошибка:</b>\n${escapeHtml(msg)}</blockquote>`,
+        );
       }
     } finally {
       session.isRunning = false;
@@ -209,7 +306,8 @@ export class AgentBridge {
     event: OmpStreamEvent,
     streamer: TelegramStreamConsumer,
     session: ChatSessionState,
-  ): void {
+  ): boolean {
+    let producedText = false;
     switch (event.type) {
       case "turn_start":
         streamer.onTurnStart();
@@ -237,6 +335,7 @@ export class AgentBridge {
           | undefined;
         if (update && update.type === "text_delta" && update.delta) {
           streamer.onTextDelta(update.delta);
+          producedText = true;
         }
         break;
       }
@@ -257,5 +356,6 @@ export class AgentBridge {
       default:
         break;
     }
+    return producedText;
   }
 }
