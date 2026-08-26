@@ -714,7 +714,7 @@ export class MessageHandler {
 
   private async handleThinking(message: TelegramMessage, args: string): Promise<void> {
     const level = args.trim().toLowerCase();
-    if (["off", "low", "medium", "high", "max"].includes(level)) {
+    if (["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"].includes(level)) {
       this.config.defaultThinkingLevel = level;
       await this.client.sendMessage(
         message.chat.id,
@@ -738,13 +738,22 @@ export class MessageHandler {
       inline_keyboard: [
         [
           { text: "🚫 Off", callback_data: "set_thinking:off" },
+          { text: "⚪ Minimal", callback_data: "set_thinking:minimal" },
+        ],
+        [
           { text: "🟢 Low", callback_data: "set_thinking:low" },
           { text: "🟡 Medium", callback_data: "set_thinking:medium" },
+        ],
+        [
           { text: "🔴 High", callback_data: "set_thinking:high" },
+          { text: "🔥 XHigh", callback_data: "set_thinking:xhigh" },
+        ],
+        [
+          { text: "🚀 Max", callback_data: "set_thinking:max" },
+          { text: "🔮 Auto", callback_data: "set_thinking:auto" },
         ],
       ],
     };
-
     await this.client.sendMessage(message.chat.id, text, {
       message_thread_id: message.message_thread_id,
       reply_to_message_id: message.message_id,
