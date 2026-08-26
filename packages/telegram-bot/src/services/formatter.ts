@@ -11,8 +11,11 @@ export const STICKER_TAG_RE = /<tg-sticker\s+([^>]+)\s*\/?>/gi;
 export const REACT_TAG_RE = /<tg-react\s+([^>]+)\s*\/?>/gi;
 export const CUSTOM_EMOJI_TAG_RE = /<tg-emoji\s+emoji-id="([^"]+)">([\s\S]*?)<\/tg-emoji>/gi;
 
+// Matches valid Telegram HTML tags to preserve them during escaping
+const VALID_TG_TAG_RE = /<\/?(?:b|strong|i|em|u|ins|s|strike|del|tg-spoiler|code|pre|blockquote(?:\s+expandable)?|a(?:\s+href="[^"]*")?|tg-emoji(?:\s+emoji-id="[^"]*")?)>/gi;
+
 /**
- * Escapes characters for HTML, except when already part of valid Telegram tags.
+ * Escapes characters for HTML.
  */
 export function escapeHtml(text: string): string {
   return text
@@ -167,11 +170,11 @@ export function mdToTelegramHtml(markdown: string): string {
     return placeholder;
   });
 
-  // 5. Temporarily stash custom emojis (<tg-emoji>...</tg-emoji>)
-  const customEmojis: string[] = [];
-  text = text.replace(CUSTOM_EMOJI_TAG_RE, (fullTag) => {
-    const placeholder = `\x01CE${customEmojis.length}\x02`;
-    customEmojis.push(fullTag);
+  // 5. Temporarily stash existing valid Telegram HTML tags
+  const validHtmlTags: string[] = [];
+  text = text.replace(VALID_TG_TAG_RE, (tag) => {
+    const placeholder = `\x01TG${validHtmlTags.length}\x02`;
+    validHtmlTags.push(tag);
     return placeholder;
   });
 
@@ -195,15 +198,19 @@ export function mdToTelegramHtml(markdown: string): string {
   // 11. Spoilers (||text||)
   text = text.replace(/\|\|(.*?)\|\|/g, "<tg-spoiler>$1</tg-spoiler>");
 
-  // 12. Blockquotes (> text)
-  text = text.replace(/^>\s*(.+)$/gm, "<blockquote>$1</blockquote>");
+  // 12. Multi-line Markdown Blockquotes (> text or &gt; text)
+  text = text.replace(/(?:^(?:>|&gt;)[ \t]?(?:.*(?:\n|$)))+/gm, (block) => {
+    const lines = block.split("\n").filter((l) => l.startsWith(">") || l.startsWith("&gt;") || l.trim() !== "");
+    const inner = lines.map((line) => line.replace(/^(?:>|&gt;)[ \t]?/, "")).join("\n").trim();
+    return inner ? `<blockquote>${inner}</blockquote>\n` : "";
+  });
 
   // 13. Links ([text](url))
   text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
 
-  // 14. Restore custom emojis
-  for (let i = 0; i < customEmojis.length; i++) {
-    text = text.replace(`\x01CE${i}\x02`, customEmojis[i]);
+  // 14. Restore valid Telegram HTML tags
+  for (let i = 0; i < validHtmlTags.length; i++) {
+    text = text.replace(`\x01TG${i}\x02`, validHtmlTags[i]);
   }
 
   // 15. Restore inline code
@@ -215,6 +222,7 @@ export function mdToTelegramHtml(markdown: string): string {
   for (let i = 0; i < codeBlocks.length; i++) {
     text = text.replace(`\x01CB${i}\x02`, codeBlocks[i]);
   }
+
   return text.trim();
 }
 

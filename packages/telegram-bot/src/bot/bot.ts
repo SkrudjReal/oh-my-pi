@@ -4,6 +4,7 @@
 
 import type { BotConfig } from "../core/config";
 import { AgentBridge } from "../services/agent-bridge";
+import { setBotCommands } from "./commands-registry";
 import { MessageHandler } from "./handlers";
 import { TelegramClient } from "./telegram-client";
 
@@ -28,9 +29,13 @@ export class OmpTelegramBot {
     const me = await this.client.getMe(this.abortController.signal);
     console.log(`🤖 OMP Telegram Bot started as @${me.username} (ID: ${me.id})`);
     console.log(`🎯 Default Model: ${this.config.defaultModel}`);
-    console.log(`🛡 Public Mode: ${this.config.isPublicMode ? "YES (All Users Allowed)" : "NO (Whitelisted Only)"}`);
+    console.log(`👑 Bot Owner ID: ${this.config.botOwnerId !== null ? this.config.botOwnerId : "Not set (open/whitelist mode)"}`);
+    console.log(`🛡 Access Mode: ${this.config.isPublicMode ? "PUBLIC (All Users Allowed)" : "RESTRICTED (Owner / Whitelist Only)"}`);
     console.log(`📁 Workspace Root: ${this.config.workspaceRoot}`);
     console.log(`⚡ Streaming Enabled: ${this.config.enableStreaming ? "YES" : "NO"}`);
+
+    // Set Telegram native "/" command popup menu
+    await setBotCommands(this.client, this.config);
 
     let offset = 0;
 
@@ -51,6 +56,8 @@ export class OmpTelegramBot {
 
           if (update.message) {
             void this.messageHandler.handleMessage(update.message);
+          } else if (update.callback_query) {
+            void this.messageHandler.handleCallbackQuery(update.callback_query);
           }
         }
       } catch (err: unknown) {

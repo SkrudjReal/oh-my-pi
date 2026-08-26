@@ -5,6 +5,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type {
+  TelegramBotCommand,
+  TelegramBotCommandScope,
   TelegramFile,
   TelegramInlineKeyboardMarkup,
   TelegramMessage,
@@ -239,6 +241,60 @@ export class TelegramClient {
       3,
       signal,
     );
+  }
+
+  async setMyCommands(
+    commands: TelegramBotCommand[],
+    scope?: TelegramBotCommandScope,
+    language_code?: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return this.request<boolean>(
+      "setMyCommands",
+      {
+        commands,
+        scope,
+        language_code,
+      },
+      3,
+      signal,
+    );
+  }
+
+  async deleteMyCommands(
+    scope?: TelegramBotCommandScope,
+    language_code?: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return this.request<boolean>(
+      "deleteMyCommands",
+      {
+        scope,
+        language_code,
+      },
+      3,
+      signal,
+    );
+  }
+
+  async answerCallbackQuery(
+    callback_query_id: string,
+    options?: { text?: string; show_alert?: boolean; url?: string; cache_time?: number },
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    try {
+      return await this.request<boolean>(
+        "answerCallbackQuery",
+        {
+          callback_query_id,
+          ...options,
+        },
+        2,
+        signal,
+      );
+    } catch {
+      return false;
+    }
   }
 
   async getFile(file_id: string, signal?: AbortSignal): Promise<TelegramFile> {

@@ -143,6 +143,20 @@ export interface TelegramReactionTypeCustomEmoji {
 
 export type TelegramReactionType = TelegramReactionTypeEmoji | TelegramReactionTypeCustomEmoji;
 
+export interface TelegramBotCommand {
+  command: string;
+  description: string;
+}
+
+export type TelegramBotCommandScope =
+  | { type: "default" }
+  | { type: "all_private_chats" }
+  | { type: "all_group_chats" }
+  | { type: "all_chat_administrators" }
+  | { type: "chat"; chat_id: number | string }
+  | { type: "chat_administrators"; chat_id: number | string }
+  | { type: "chat_member"; chat_id: number | string; user_id: number };
+
 // ==========================================
 // OMP Agent JSON-Streaming Event Definitions
 // ==========================================
